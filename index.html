@@ -502,7 +502,8 @@ document.addEventListener('paste',e=>{const f=[...(e.clipboardData?.files||[])].
 
 
 /* ---------- app instalable ---------- */
-if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{});
+navigator.serviceWorker&&navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!window.__reloaded&&document.body.dataset.view==='home'){window.__reloaded=true;location.reload()}});
 let deferred=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('#installBtn').hidden=false});
 $('#installBtn').addEventListener('click',async()=>{if(!deferred)return;deferred.prompt();await deferred.userChoice.catch(()=>{});deferred=null;$('#installBtn').hidden=true});
 window.addEventListener('appinstalled',()=>{$('#installBtn').hidden=true});

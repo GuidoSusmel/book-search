@@ -1,7 +1,7 @@
 // GASStudio Book Search — service worker
 // Guarda la app para que abra al instante y funcione la interfaz sin conexión.
 // Las búsquedas siempre van a internet (las bibliotecas no se pueden guardar).
-const VERSION = 'book-search-v2';
+const VERSION = 'book-search-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/favicon-64.png'];
 
 self.addEventListener('install', e => {
@@ -15,7 +15,7 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   // App propia: red primero (para recibir actualizaciones), caché si no hay conexión
   if (url.origin === location.origin) {
-    e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); return r; })
+    e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); return r; })
       .catch(() => caches.match(e.request).then(r => r || caches.match('./index.html'))));
     return;
   }
