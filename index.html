@@ -481,7 +481,8 @@ async function search(q,more){
 }
 const visible=()=>$('#onlypdf').checked?S.items.filter(b=>b.pdf):S.items;
 function render(final=true){
- const list=visible();$('#rc').innerHTML=`Cantidad de resultados <b>${list.length}${final?'':'…'}</b>`;
+ const qt=nrm(S.q).split(/[^a-z0-9]+/).filter(t=>t.length>2&&!STOPQ.has(t));const rel=b=>{const t=nrm(b.title+' '+b.author);return (b.rubro?2:0)+(qt.length&&qt.every(w=>t.includes(w))?1.5:qt.some(w=>t.includes(w))?0.5:0)};
+ const list=visible().map((b,k)=>[rel(b),k,b]).sort((x,y)=>y[0]-x[0]||x[1]-y[1]).map(x=>x[2]);$('#rc').innerHTML=`Cantidad de resultados <b>${list.length}${final?'':'…'}</b>`;
  if(!list.length&&!final)return;
  if(!list.length){document.body.classList.add('noresults');$('#rsearch').classList.add('glow');planB(S.q);return}
  $('#rbody').innerHTML=`<div class="grid">${list.map(b=>{const i=S.items.indexOf(b);return `<div class="card" role="button" tabindex="0" data-i="${i}" aria-label="${esc(b.title)}, ${esc(b.author)}">${coverHTML(b)}
