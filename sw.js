@@ -1,7 +1,7 @@
 // GASStudio Book Search — service worker
 // Guarda la app para que abra al instante y funcione la interfaz sin conexión.
 // Las búsquedas siempre van a internet (las bibliotecas no se pueden guardar).
-const VERSION = 'book-search-v4';
+const VERSION = 'book-search-v5';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/favicon-64.png'];
 
 self.addEventListener('install', e => {
