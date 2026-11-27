@@ -559,6 +559,14 @@ function closeOv(){job++;$('#ov').classList.remove('show','error','confirm');doc
 function errOv(msg){$('#ov').classList.add('error');if(msg)$('#errp').textContent=msg;$('#errphoto').focus()}
 /* Lector de tapas: 4 pasadas sobre la foto (canal más brillante y luminancia, con y sin contraste local),
    se queda con las palabras confiables más grandes y las ordena como se leen. */
+/* Reconocimiento con IA (Cloudflare Workers AI, gratis). Si falla, se usa el lector local. */
+const AI_URL='https://book-search-tapas.guiidoosusmel.workers.dev';
+function toJpegB64(canvas,max=1024){const k=Math.min(1,max/Math.max(canvas.width,canvas.height));const c=document.createElement('canvas');c.width=Math.round(canvas.width*k);c.height=Math.round(canvas.height*k);c.getContext('2d').drawImage(canvas,0,0,c.width,c.height);return c.toDataURL('image/jpeg',.82).split(',')[1]}
+async function aiCover(file){const img=await new Promise((ok,no)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=no;i.src=URL.createObjectURL(file)});
+ const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);
+ const ac=new AbortController();const to=setTimeout(()=>ac.abort(),20000);
+ try{const r=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:toJpegB64(c),mediaType:'image/jpeg'}),signal:ac.signal});
+  if(!r.ok)return null;const d=await r.json();const b=d&&d.book;if(!b||!b.title||Number(b.confidence)<0.35)return null;return b}catch(e){return null}finally{clearTimeout(to)}}
 const PUB=new Set(['taschen','phaidon','thames','hudson','penguin','random','house','anagrama','alfaguara','planeta','debolsillo','salamandra','tusquets','sudamericana','editorial','ediciones','gestalten','rizzoli','assouline','brooklyn','museum','press','books','edition','edicion','edición']);
 const TWO=new Set(['to','of','in','on','at','by','an','is','it','my','no','de','la','el','en','lo','un','mi','tu','se','3d','2d']);
 function variant(src,mode,adapt){const W=src.width,H=src.height;const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.drawImage(src,0,0);
@@ -589,7 +597,14 @@ function confirmOv(t){$('#ov').classList.add('confirm');$('#ovq').value=t;$('#ov
 async function readCover(file){
  if(!file||!file.type.startsWith('image/'))return;const my=++job;openOv(URL.createObjectURL(file));$('#ov').classList.remove('confirm');
  $('#errp').textContent='No encontramos texto legible en la tapa. Probá con más luz, la tapa de frente y sin reflejos, o escribí el título en el buscador.';
- if(!window.Tesseract){errOv('No pudimos cargar el lector de portadas. Revisá tu conexión a internet o escribí el título en el buscador.');return}
+ $('#ovst').textContent='RECONOCIENDO LA TAPA CON IA…';
+ const setPA=p=>{if(my!==job)return;$('#ovpc').textContent=Math.round(p)+'%';$('#ovbar').style.width=p+'%'};setPA(15);
+ const tick=setInterval(()=>{const v=parseFloat($('#ovbar').style.width)||15;if(v<85)setPA(v+7)},400);
+ const ai=await aiCover(file).catch(()=>null);clearInterval(tick);if(my!==job)return;
+ if(ai){setPA(100);const t=[ai.title,ai.author].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+  confirmOv(t);$('#ovhint').textContent=`Reconocido por IA: “${ai.title}”${ai.author?' de '+ai.author:''}${ai.publisher?' ('+ai.publisher+')':''}. Podés corregirlo antes de buscar.`;return}
+ $('#ovst').textContent='LEYENDO LA PORTADA…';
+ if(!window.Tesseract){errOv('No pudimos reconocer la tapa. Revisá tu conexión a internet o escribí el título en el buscador.');return}
  try{const base=await shrink(file);const passes=[['max',false],['lum',false],['max',true],['lum',true]];let done=0;
   const setP=p=>{if(my!==job)return;$('#ovpc').textContent=Math.round(p)+'%';$('#ovbar').style.width=p+'%'};setP(3);
   worker=await Tesseract.createWorker('spa+eng',1,{logger:m=>{if(m.status==='recognizing text')setP(8+(done+m.progress)/passes.length*90);else if(/load|initializ/.test(m.status||''))setP(5)}});
