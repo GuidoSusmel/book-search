@@ -151,7 +151,7 @@ body.noresults .rtitle{opacity:.1}
 .syn{font:400 clamp(16px,1.04vw,20px)/1.55 Inter;max-width:1000px;padding-top:26px;white-space:pre-line}
 .syn.load{color:var(--mute)}
 .dacts{display:flex;gap:14px;flex-wrap:wrap;margin-top:36px}
-.src{font:300 15px Inter;color:var(--mute);margin-top:18px}
+.src{font:300 15px Inter;color:var(--mute);margin-top:18px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.src .tag{font:500 12px Inter;color:var(--ink);background:var(--p2);border-radius:999px;padding:5px 12px}
 .cover{height:100%;border-radius:30px;overflow:hidden;position:relative;background:var(--panel)}
 .cover>img,.cover>.gc{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .cover .shade{position:absolute;left:0;right:0;bottom:0;height:300px;background:linear-gradient(transparent,rgba(0,0,0,.7) 55%,rgba(0,0,0,.92))}
@@ -354,7 +354,7 @@ const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const plain=h=>{try{return new DOMParser().parseFromString(String(h||''),'text/html').body.textContent.replace(/\s+\n/g,'\n').trim()}catch(e){return String(h||'')}};
 const LANG={es:{ol:'spa',ia:'(spa OR Spanish OR español)'},en:{ol:'eng',ia:'(eng OR English)'}};
-const LNAME={es:'Español',spa:'Español',spanish:'Español',en:'Inglés',eng:'Inglés',english:'Inglés',fr:'Francés',fre:'Francés',fra:'Francés',pt:'Portugués',por:'Portugués',it:'Italiano',ita:'Italiano',de:'Alemán',ger:'Alemán',deu:'Alemán',la:'Latín',lat:'Latín'};
+const LNAME={german:'Alemán',french:'Francés',italian:'Italiano',japanese:'Japonés',portuguese:'Portugués',es:'Español',spa:'Español',spanish:'Español',en:'Inglés',eng:'Inglés',english:'Inglés',fr:'Francés',fre:'Francés',fra:'Francés',pt:'Portugués',por:'Portugués',it:'Italiano',ita:'Italiano',de:'Alemán',ger:'Alemán',deu:'Alemán',la:'Latín',lat:'Latín'};
 const lname=v=>{const k=String(Array.isArray(v)?v[0]:v||'').toLowerCase();return LNAME[k]||(k?k.charAt(0).toUpperCase()+k.slice(1):'—')};
 const cleanAu=a=>{a=String(a||'').replace(/\[[^\]]*\]/g,'').replace(/,?\s*\(?(ca\.\s*)?\d{3,4}\s*-\s*(\d{3,4})?\??\)?\.?\s*$/,'').replace(/[.,;\s]+$/,'').trim();const p=a.split(',').map(s=>s.trim()).filter(Boolean);return p.length===2?`${p[1]} ${p[0]}`:a};
 /* Clave de Google Books (opcional). Restringida al dominio de la app. Sin clave, Google suele rechazar las consultas. */
@@ -383,13 +383,41 @@ async function openlibrary(q,lang,p){
    cover:b.cover_i?`https://covers.openlibrary.org/b/id/${b.cover_i}-L.jpg`:'',pdf:`https://archive.org/download/${ia}/${ia}.pdf`,epub:'',
    read:`https://archive.org/embed/${ia}`,page:`https://openlibrary.org${b.key}`}})}
 async function archive(q,lang,p){
- const qq=q.replace(/[():"\\]/g,' ').trim();let s=`(title:(${qq}) OR creator:(${qq})) AND mediatype:texts AND format:PDF AND NOT collection:inlibrary AND NOT collection:printdisabled AND NOT access-restricted-item:true`;
+ const qq=q.replace(/[():"\\]/g,' ').trim();let s=`(title:(${qq}) OR creator:(${qq})) AND mediatype:texts AND format:PDF AND NOT collection:inlibrary AND NOT collection:printdisabled AND NOT access-restricted-item:true${IA_SAFE}`;
  if(lang)s+=` AND language:${LANG[lang].ia}`;
  const d=await getJSON(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(s)}&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=year&fl[]=language&sort[]=downloads+desc&rows=20&page=${p}&output=json`);
  return (d.response?.docs||[]).map(b=>({id:'ia-'+b.identifier,kind:'ia',ref:b.identifier,ia:b.identifier,src:'Internet Archive',title:Array.isArray(b.title)?b.title[0]:b.title,
   author:(Array.isArray(b.creator)?b.creator.slice(0,3):[b.creator||'']).map(cleanAu).filter(Boolean).join('; '),year:b.year||'',lang:lname(b.language),
   cover:`https://archive.org/services/img/${b.identifier}`,pdf:`https://archive.org/download/${b.identifier}/${b.identifier}.pdf`,epub:'',
   read:`https://archive.org/embed/${b.identifier}`,page:`https://archive.org/details/${b.identifier}`}))}
+/* ---------- fuentes del rubro: arte, diseño, fotografía ---------- */
+const IA_SAFE=' AND NOT collection:opensource AND NOT collection:community AND NOT collection:folkscanomy AND NOT collection:booksbylanguage AND NOT collection:opensource_media';
+const MUSEUMS='(getty OR guggenheimmuseum OR philadelphiamuseumofart OR clevelandmuseumofart OR lacma OR frickartreferencelibrary OR smithsonian OR prelinger_library)';
+const MUSEUM_NAME={getty:'Getty Research Institute',guggenheimmuseum:'Guggenheim',philadelphiamuseumofart:'Philadelphia Museum of Art',clevelandmuseumofart:'Cleveland Museum of Art',lacma:'LACMA',frickartreferencelibrary:'The Frick',smithsonian:'Smithsonian',prelinger_library:'Prelinger Library'};
+async function museums(q,lang,p){
+ const qq=q.replace(/[():"\\]/g,' ').trim();const terms=expandQ(qq).slice(0,8).join(' OR ');
+ let s=`(title:(${terms}) OR subject:(${terms}) OR creator:(${qq})) AND collection:${MUSEUMS} AND mediatype:texts AND NOT access-restricted-item:true`;
+ const d=await getJSON(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(s)}&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=year&fl[]=language&fl[]=collection&sort[]=downloads+desc&rows=24&page=${p}&output=json`);
+ return (d.response?.docs||[]).map(b=>{const col=(b.collection||[]).find(c=>MUSEUM_NAME[c]);return{id:'ia-'+b.identifier,kind:'ia',ref:b.identifier,ia:b.identifier,src:(MUSEUM_NAME[col]||'Museo')+' · Internet Archive',rubro:1,title:Array.isArray(b.title)?b.title[0]:b.title,
+  author:(Array.isArray(b.creator)?b.creator.slice(0,3):[b.creator||'']).map(cleanAu).filter(Boolean).join('; '),year:b.year||'',lang:lname(b.language),
+  cover:`https://archive.org/services/img/${b.identifier}`,pdf:`https://archive.org/download/${b.identifier}/${b.identifier}.pdf`,epub:'',
+  read:`https://archive.org/embed/${b.identifier}`,page:`https://archive.org/details/${b.identifier}`}})}
+/* Catálogo propio de Getty y The Met (libros completos y gratis publicados por los museos) */
+const ES_EN={fotografia:'photography photograph photographs',foto:'photograph',diseno:'design',disenos:'design',grafico:'graphic',tipografia:'typography typographic typeface lettering',tipografico:'typographic typography',caligrafia:'calligraphy',imprenta:'printing printed',editorial:'book publishing',japonesa:'japanese',japoneses:'japanese',chinos:'chinese',china:'china chinese',francesa:'french',frances:'french',italiano:'italian',italiana:'italian',espanol:'spanish',espanola:'spanish',aleman:'german',alemana:'german',americano:'american',americana:'american',europeo:'european',europea:'european',ingles:'english british',inglesa:'english british',holandes:'dutch',holandesa:'dutch netherlandish',flamenca:'flemish',flamenco:'flemish',indio:'indian',india:'india indian',persa:'persian',africano:'african',africana:'african',fotografo:'photographer photography',fotografos:'photographers',pintor:'painter',pintores:'painters',artista:'artist',artistas:'artists',vanguardia:'avant-garde modernism',surrealismo:'surrealism surrealist',cubismo:'cubism cubist',expresionismo:'expressionism',retratos:'portraits',dibujante:'draftsman drawings',grafica:'graphic prints',carteles:'posters',revista:'magazine journal',coleccion:'collection',museo:'museum',letra:'lettering',arquitectura:'architecture',moda:'fashion costume',textil:'textile textiles',pintura:'painting paintings',pinturas:'paintings',dibujo:'drawing drawings',dibujos:'drawings',grabado:'prints printmaking',grabados:'prints',escultura:'sculpture',cine:'film cinema',publicidad:'advertising',arte:'art',color:'color colour',mueble:'furniture',muebles:'furniture',ceramica:'ceramics ceramic',vidrio:'glass',joyas:'jewelry',joyeria:'jewelry',retrato:'portrait portraits',paisaje:'landscape',renacimiento:'renaissance',barroco:'baroque',impresionismo:'impressionism impressionist',moderno:'modern',contemporaneo:'contemporary',egipto:'egypt egyptian',griego:'greek',romano:'roman',japon:'japan japanese',japones:'japanese',chino:'chinese',china:'china chinese',islamico:'islamic',medieval:'medieval',manuscrito:'manuscript manuscripts',libro:'book',libros:'books',jardin:'garden gardens',conservacion:'conservation',restauracion:'restoration',ornamento:'ornament',armadura:'armor',tapiz:'tapestry',alfombra:'carpet',cartel:'poster',afiche:'poster',ilustracion:'illustration',acuarela:'watercolor'};
+const STOPQ=new Set(['de','la','el','los','las','y','en','del','un','una','the','of','and','in','a','an','to','for','on','by','con','por','para','sobre']);
+const nrm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+function expandQ(q){const toks=nrm(q).split(/[^a-z0-9]+/).filter(t=>t.length>1&&!STOPQ.has(t));const out=new Set(toks);toks.forEach(t=>(ES_EN[t]||'').split(' ').filter(Boolean).forEach(x=>out.add(x)));return [...out]}
+let CAT=null;
+function loadCat(){if(!CAT)CAT=fetch('data/catalogo-arte.json').then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>{d.items.forEach(it=>{it._t=nrm(it.t);it._a=nrm(it.a);it._k=nrm((it.k||[]).join(' '));it._d=nrm(it.d)});return d}).catch(e=>{CAT=null;throw e});return CAT}
+async function catalog(q,lang,p){if(p>1)return[];const d=await loadCat();const toks=nrm(q).split(/[^a-z0-9]+/).filter(t=>t.length>1&&!STOPQ.has(t));if(!toks.length)return[];
+ const groups=toks.map(t=>[t,...(ES_EN[t]||'').split(' ').filter(Boolean)]);
+ const has=(f,w)=>w.length<4?new RegExp('\\b'+w+'\\b').test(f):f.includes(w);
+ const res=[];for(const it of d.items){let sc=0,hit=0;for(const g of groups){let best=0;for(const w of g){if(has(it._t,w))best=Math.max(best,3);else if(has(it._a,w))best=Math.max(best,2.2);else if(has(it._k,w))best=Math.max(best,1.6);else if(has(it._d,w))best=Math.max(best,1)}if(best){hit++;sc+=best}}
+  if(!hit)continue;const base=sc;if(lang==='es'&&/Spanish/.test(it.l||''))sc+=1.5;if(it.art)sc*=0.6;sc+=Math.min(1,(+it.y||1900)/2030)*0.2;res.push([sc,it,hit,base])}
+ const maxHit=Math.max(0,...res.map(r=>r[2]));const keep=res.filter(r=>r[2]===maxHit&&(maxHit===groups.length||r[3]>=2.5));
+ keep.sort((a,b)=>b[0]-a[0]);const res2=keep;
+ return res2.slice(0,40).map(([sc,it])=>({id:'c-'+it.i,kind:'cat',src:it.s==='getty'?'Getty Publications':'The Met',rubro:1,title:it.t,author:(it.a||'').split(/;| and /).slice(0,3).map(cleanAu).join('; '),year:it.y||'',lang:lname(String(it.l||'').split(',')[0].trim().toLowerCase()==='spanish'?'es':String(it.l||'').split(',')[0].trim()),
+  publisher:it.s==='getty'?'Getty Publications':'The Metropolitan Museum of Art',cover:it.img||'',pdf:it.pdf,epub:it.epub||'',read:it.pdf,page:it.u,summary:it.d||'',done:true,tags:it.k||[]}))}
 async function wikisource(q,lang,p){
  if(p>1)return[];const langs=lang?[lang]:['es','en'];const out=[];
  await Promise.all(langs.map(async L=>{const d=await getJSON(`https://${L}.wikisource.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srnamespace=0&srlimit=20&format=json&origin=*`);
@@ -443,12 +471,12 @@ async function search(q,more){
  $('#rt').textContent=`Tus resultados para: “${S.q}”`;
  if(!more){$('#rc').innerHTML='Cantidad de resultados <b>…</b>';$('#rbody').innerHTML=`<div class="grid">${'<div class="skel"></div>'.repeat(10)}</div>`;$('#rerr').innerHTML='';show('results')}
  $('#more').hidden=true;
- const lang=$('#lang').value;const my=++S.run;let got=0,pending=5;const fails=[];
+ const lang=$('#lang').value;const my=++S.run;let got=0,pending=7;const fails=[];
  const seen=new Set(S.items.map(b=>b.id));
  const done=()=>{if(my!==S.run)return;const fl=fails.filter(f=>f!=='Google Books'||GBKEY);$('#rerr').innerHTML=fl.length&&visible().length?`<div class="err">${esc(fl.join(', ').replace(/, ([^,]*)$/,' y $1'))} no ${fl.length>1?'respondieron':'respondió'} a tiempo. Mostramos lo que llegó de las demás bibliotecas.</div>`:'';
   if(pending===0){render(true);$('#more').hidden=got===0||visible().length===0}};
  const add=list=>{const fresh=list.filter(b=>!seen.has(b.id)&&(seen.add(b.id),true));S.items.push(...fresh);got+=fresh.length;if(visible().length)render(false)};
- [['Open Library',openlibrary],['Internet Archive',archive],['Wikisource',wikisource],['Google Books',gbooks],['Project Gutenberg',gutenberg]].forEach(([name,fn])=>{
+ [['Getty y The Met',catalog],['Museos',museums],['Open Library',openlibrary],['Internet Archive',archive],['Wikisource',wikisource],['Google Books',gbooks],['Project Gutenberg',gutenberg]].forEach(([name,fn])=>{
   fn(S.q,lang,S.page).then(l=>{if(my===S.run)add(l)}).catch(()=>{if(my===S.run)fails.push(name)}).finally(()=>{pending--;done()})});
 }
 const visible=()=>$('#onlypdf').checked?S.items.filter(b=>b.pdf):S.items;
@@ -465,7 +493,7 @@ async function planB(q){const my=S.run;const Q=encodeURIComponent(q);
  const pdfOnly=$('#onlypdf').checked&&S.items.length>0;
  $('#rbody').innerHTML=`<div class="empty"><div class="zero" aria-hidden="true">0</div>
   <h3>${pdfOnly?`No hay PDF gratis de “${esc(q)}”`:`No encontramos una versión gratuita y legal de “${esc(q)}”`}</h3>
-  <p>${pdfOnly?`Encontramos ${S.items.length} resultado${S.items.length>1?'s':''} en otros formatos (EPUB o lectura online). <button class="linkbtn" type="button" id="showAll">Mostrarlos</button>.`:'Lo buscamos en Open Library, Internet Archive, Wikisource, Google Books y Project Gutenberg. Si es un libro con derechos de autor vigentes, no hay una copia gratuita legal, pero todavía podés leerlo así:'}</p>
+  <p>${pdfOnly?`Encontramos ${S.items.length} resultado${S.items.length>1?'s':''} en otros formatos (EPUB o lectura online). <button class="linkbtn" type="button" id="showAll">Mostrarlos</button>.`:'Lo buscamos en las bibliotecas de Getty y The Met, colecciones de museos, Open Library, Internet Archive, Wikisource, Google Books y Project Gutenberg. Si es un libro con derechos de autor vigentes, no hay una copia gratuita legal, pero todavía podés leerlo así:'}</p>
   <div class="planb" id="planb"><div class="pb-sec"><small>PEDILO PRESTADO GRATIS</small><div class="pb-row" id="pbBorrow"><span class="pb-load">Buscando en Open Library…</span></div></div>
   <div class="pb-sec"><small>BUSCALO EN OTRAS BIBLIOTECAS DIGITALES</small><div class="sugs left">
    <a class="chip" target="_blank" rel="noopener" href="https://babel.hathitrust.org/cgi/ls?q1=${Q};anyall1=all;lmt=ft">HathiTrust</a>
@@ -507,7 +535,7 @@ async function openDetail(i){S.idx=i;const b=S.items[i];if(!b)return;const list=
  const big=b.kind==='ia'?`https://archive.org/download/${b.ia}/page/cover_w800.jpg`:b.cover;
  $('#dcover').innerHTML=`${gen(b)}${big?`<img src="${esc(big)}" alt="Tapa de ${esc(b.title)}" onerror="${b.kind==='ia'?`this.onerror=function(){this.remove()};this.src='${esc(b.cover)}'`:'this.remove()'}">`:''}<div class="shade"></div>${b.pdf?`<a class="dl" href="${esc(b.pdf)}" target="_blank" rel="noopener">${'<svg width="53" height="70" viewBox="0 0 53 70" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M45.046 0C45.25 .089 45.607 .128 45.836 .173C46.214 .246 46.587 .344 46.952 .466C49.3 1.269 51.212 3.034 52.224 5.332C52.627 6.244 52.875 7.218 52.956 8.214C53.011 8.888 52.996 9.619 52.996 10.3V36.476C52.997 37.152 53.014 37.929 52.971 38.596C52.91 39.489 52.72 40.367 52.408 41.204C51.555 43.447 49.858 45.253 47.692 46.223C46.964 46.549 46.195 46.769 45.406 46.877C44.177 47.05 42.63 46.971 41.373 46.983C40.722 46.989 38.327 47.063 37.824 46.853C37.356 46.653 36.987 46.268 36.803 45.786C36.633 45.346 36.659 44.921 36.851 44.492C37.047 44.053 37.411 43.713 37.858 43.552C38.377 43.36 39.32 43.417 39.899 43.418L42.609 43.423C43.377 43.424 44.242 43.448 44.995 43.328C46.717 43.054 48.198 41.939 48.957 40.344C49.232 39.774 49.401 39.158 49.455 38.526C49.571 37.084 49.513 35.014 49.513 33.539V10.314C49.511 9.275 49.535 8.153 49.194 7.165C48.72 5.8 47.732 4.683 46.447 4.059C45.077 3.39 43.701 3.518 42.227 3.519H11.185C9.941 3.518 8.258 3.417 7.108 3.826C5.746 4.313 4.631 5.331 4.01 6.656C3.738 7.247 3.563 7.916 3.534 8.567C3.457 10.307 3.489 12.092 3.489 13.836V32.757C3.489 34.595 3.459 36.469 3.53 38.303C3.551 38.845 3.655 39.345 3.841 39.854C4.343 41.207 5.352 42.302 6.646 42.901C7.993 43.521 9.318 43.404 10.765 43.402H13.311C13.839 43.399 14.608 43.341 15.099 43.504C16.083 43.831 16.67 45.119 16.058 46.053C15.708 46.588 15.265 46.931 14.596 46.958C13.668 46.994 12.727 46.943 11.797 46.963C10.415 46.94 8.834 47.048 7.479 46.845C6.655 46.717 5.853 46.47 5.098 46.11C2.957 45.085 1.307 43.235 .515 40.969C.231 40.148 .064 39.29 .021 38.421C-.014 37.763 .005 36.957 .005 36.29V10.16C.005 9.524-.009 8.844 .044 8.214C.132 7.133 .415 6.079 .876 5.101C1.911 2.925 3.758 1.26 6.007 .475C6.416 .33 6.791 .252 7.211 .166C7.398 .128 7.84 .068 7.988 0H45.046Z" fill="#B1B6B0"/><path d="M26.753 70H26.23C26.106 69.929 25.726 69.836 25.602 69.742C24.931 69.236 24.081 68.28 23.487 67.669L13.62 57.505C13.454 57.3 13.207 57.058 13.118 56.807C12.689 55.579 13.469 54.324 14.776 54.38C15.066 54.392 15.381 54.444 15.627 54.633C16.111 55.005 16.53 55.475 16.957 55.917L24.776 63.979L24.777 32.033C24.777 31.59 24.756 31.127 24.798 30.687C25.012 28.445 27.969 28.449 28.22 30.631C28.267 31.031 28.24 31.481 28.24 31.886L28.239 63.994C30.047 62.057 32.046 60.073 33.9 58.164L35.935 56.067C36.278 55.714 37.117 54.773 37.509 54.571C38.327 54.147 39.455 54.459 39.852 55.396C40.046 55.852 40.05 56.37 39.86 56.828C39.678 57.279 37.459 59.46 36.973 59.961L29.24 67.92C28.705 68.472 28.163 69.044 27.613 69.579C27.36 69.824 27.072 69.858 26.803 69.977L26.753 70Z" fill="#B1B6B0"/></svg>'}<span>DESCARGAR PDF</span></a>`:''}`;
  $('#dacts').innerHTML=`${b.pdf?`<a class="btn p" href="${esc(b.pdf)}" target="_blank" rel="noopener">Descargar PDF</a>`:(b.epub?`<a class="btn p" href="${esc(b.epub)}" target="_blank" rel="noopener">Descargar EPUB</a>`:'')}<button class="btn s" type="button" id="readBtn">Leer en Book Search</button>`;
- $('#dsrc').textContent=`Fuente: ${b.src} · Gratis y legal, sin registro`;
+ $('#dsrc').innerHTML=`${(b.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join('')}<span>Fuente: ${esc(b.src)} · Gratis y legal, sin registro</span>`;
  const fill=()=>{$('#dby').textContent=b.author?'By '+b.author.split(';')[0]:'';$('#dinfo').innerHTML=[['Autor',b.author||'Desconocido'],['Año',b.year||'—'],['Edición',b.publisher?`${b.publisher} · ${b.src}`:`Dominio público · ${b.src}`],['Idioma',b.lang||'—'],['Cantidad de páginas',b.pages?Number(b.pages).toLocaleString('es-AR'):'—']].map(([k,v])=>`<dt>${k}:</dt><dd>${esc(v)}</dd>`).join('');
   const s=$('#dsyn');if(b.summary){s.classList.remove('load');s.textContent=b.summary}else if(b.done){s.classList.add('load');s.textContent='Todavía no tenemos una sinopsis para este libro. Podés abrirlo en el lector para darle una mirada.'}else{s.classList.add('load');s.textContent='Buscando la sinopsis…'}};
  fill();if(document.body.dataset.view!=='detail')show('detail');
@@ -520,7 +548,7 @@ document.addEventListener('keydown',e=>{if(document.body.dataset.view==='detail'
 /* ---------- lector ---------- */
 function openReader(){const b=S.items[S.idx];if(!b)return;$('#rdt').textContent=b.title;$('#rda').textContent=(b.author||'').split(';')[0];
  $('#rdacts').innerHTML=b.pdf?`<a class="btn p sm" href="${esc(b.pdf)}" target="_blank" rel="noopener">Descargar PDF</a>`:'';
- $('#rtab').href=b.kind==='gut'?b.read:b.page;
+ $('#rtab').href=b.kind==='gut'?b.read:(b.kind==='cat'?b.pdf:b.page);
  if(b.kind==='ws'){$('#rframe').hidden=true;$('#rframe').src='about:blank';$('#rtext').classList.add('show');wsRead(b,b.ref)}
  else{$('#rtext').classList.remove('show');$('#rframe').hidden=false;$('#rframe').src=b.read}
  show('reader')}
