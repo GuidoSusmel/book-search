@@ -127,7 +127,7 @@ body.noresults .rtitle{opacity:.1}
 .navc span{margin-right:8px}
 .dtitle{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-top:clamp(40px,4.4vw,80px);padding-bottom:22px;border-bottom:1px solid var(--line)}
 .dtitle h2{font:700 clamp(32px,2.9vw,56px)/1.07 Inter;margin:0;overflow-wrap:anywhere}
-.dtitle p{font:400 clamp(15px,1.04vw,20px) Inter;margin:0 0 6px;white-space:nowrap;text-align:right}
+.dtitle p{font:400 clamp(15px,1.04vw,20px) Inter;margin:0 0 6px;text-align:right;max-width:40%;flex:none}
 .info{display:grid;grid-template-columns:auto 1fr;gap:4px 40px;padding:22px 0;border-bottom:1px solid var(--line);font:400 18px/30px Inter;margin:0}
 .info dt{color:var(--mute)}.info dd{margin:0;color:var(--hi);font-weight:500;overflow-wrap:anywhere}
 .syn{font:400 clamp(16px,1.04vw,20px)/1.55 Inter;max-width:1000px;padding-top:26px;white-space:pre-line}
@@ -299,7 +299,7 @@ body.dragging .pstate{display:none}
  </div>
  <div class="reader">
   <div class="rbar"><div><b id="rdt"></b><small id="rda"></small></div><div class="r" id="rdacts"></div></div>
-  <iframe id="rframe" title="Lector del libro" loading="lazy" allowfullscreen></iframe>
+  <iframe id="rframe" title="Lector del libro" allow="fullscreen" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
  </div>
  <div class="rnote">¿No carga el libro? <a id="rtab" href="#" target="_blank" rel="noopener">Abrilo en una pestaña nueva</a>.</div>
 </section>
@@ -326,6 +326,7 @@ const plain=h=>{try{return new DOMParser().parseFromString(String(h||''),'text/h
 const LANG={es:{ol:'spa',ia:'(spa OR Spanish OR español)'},en:{ol:'eng',ia:'(eng OR English)'}};
 const LNAME={es:'Español',spa:'Español',spanish:'Español',en:'Inglés',eng:'Inglés',english:'Inglés',fr:'Francés',fre:'Francés',fra:'Francés',pt:'Portugués',por:'Portugués',it:'Italiano',ita:'Italiano',de:'Alemán',ger:'Alemán',deu:'Alemán',la:'Latín',lat:'Latín'};
 const lname=v=>{const k=String(Array.isArray(v)?v[0]:v||'').toLowerCase();return LNAME[k]||(k?k.charAt(0).toUpperCase()+k.slice(1):'—')};
+const cleanAu=a=>{a=String(a||'').replace(/\[[^\]]*\]/g,'').replace(/,?\s*\(?(ca\.\s*)?\d{3,4}\s*-\s*(\d{3,4})?\??\)?\.?\s*$/,'').replace(/[.,;\s]+$/,'').trim();const p=a.split(',').map(s=>s.trim()).filter(Boolean);return p.length===2?`${p[1]} ${p[0]}`:a};
 const PAL=['#c8452c','#a33a2a','#2c4f8c','#3e6b4f','#6b2d4a','#d9a441','#4a4a6a','#8a5a2b','#2f4a3a','#5e7d8c','#b5523b','#39465e','#7a3b5c','#4f6b3e','#c27c3a'];
 const hash=s=>{let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)};
 const S={q:'',page:1,items:[],idx:0,run:0};
@@ -345,7 +346,7 @@ async function openlibrary(q,lang,p){
  if(lang)u+=`&language=${LANG[lang].ol}`;
  const d=await getJSON(u);
  return (d.docs||[]).filter(b=>b.ebook_access==='public'&&b.ia?.length).map(b=>{const ia=b.ia[0];
-  return{id:'ol-'+b.key,kind:'ol',ref:b.key,ia,src:'Open Library',title:b.title,author:(b.author_name||[]).slice(0,3).join('; '),year:b.first_publish_year||'',
+  return{id:'ol-'+b.key,kind:'ol',ref:b.key,ia,src:'Open Library',title:b.title,author:(b.author_name||[]).slice(0,3).map(cleanAu).join('; '),year:b.first_publish_year||'',
    lang:lname(b.language),pages:b.number_of_pages_median||'',publisher:(b.publisher||[])[0]||'',
    cover:b.cover_i?`https://covers.openlibrary.org/b/id/${b.cover_i}-L.jpg`:'',pdf:`https://archive.org/download/${ia}/${ia}.pdf`,epub:'',
    read:`https://archive.org/embed/${ia}`,page:`https://openlibrary.org${b.key}`}})}
@@ -354,7 +355,7 @@ async function archive(q,lang,p){
  if(lang)s+=` AND language:${LANG[lang].ia}`;
  const d=await getJSON(`https://archive.org/advancedsearch.php?q=${encodeURIComponent(s)}&fl[]=identifier&fl[]=title&fl[]=creator&fl[]=year&fl[]=language&sort[]=downloads+desc&rows=20&page=${p}&output=json`);
  return (d.response?.docs||[]).map(b=>({id:'ia-'+b.identifier,kind:'ia',ref:b.identifier,ia:b.identifier,src:'Internet Archive',title:Array.isArray(b.title)?b.title[0]:b.title,
-  author:Array.isArray(b.creator)?b.creator.slice(0,3).join('; '):(b.creator||''),year:b.year||'',lang:lname(b.language),
+  author:(Array.isArray(b.creator)?b.creator.slice(0,3):[b.creator||'']).map(cleanAu).filter(Boolean).join('; '),year:b.year||'',lang:lname(b.language),
   cover:`https://archive.org/services/img/${b.identifier}`,pdf:`https://archive.org/download/${b.identifier}/${b.identifier}.pdf`,epub:'',
   read:`https://archive.org/embed/${b.identifier}`,page:`https://archive.org/details/${b.identifier}`}))}
 async function details(b){
